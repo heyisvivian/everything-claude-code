@@ -10,7 +10,7 @@
     <div class="container">
         <header>
             <h1>Job Application Tool</h1>
-            <p class="subtitle">AI-powered CV tailoring for your dream job</p>
+            <p class="subtitle">AI-powered CV tailoring - English + French versions</p>
         </header>
 
         <main>
@@ -62,19 +62,15 @@
                 <div class="step-content">
                     <div class="input-group">
                         <input type="url" id="job-url" placeholder="https://company.com/careers/job-posting" required>
-                        <select id="output-language" class="language-select">
-                            <option value="english">English CV</option>
-                            <option value="french">French CV</option>
-                        </select>
                         <button id="btn-tailor" class="btn btn-primary">
-                            <span class="btn-text">Tailor My CV</span>
+                            <span class="btn-text">Generate CVs</span>
                             <span class="btn-loading hidden">
                                 <span class="spinner"></span>
                                 Analyzing...
                             </span>
                         </button>
                     </div>
-                    <p class="input-hint">Paste the URL of the job posting you're applying for</p>
+                    <p class="input-hint">Paste the job posting URL - we'll generate both English and French CVs</p>
                     <div id="tailor-status" class="status hidden"></div>
                 </div>
             </section>
@@ -83,7 +79,7 @@
             <section id="step-results" class="step hidden">
                 <div class="step-header">
                     <span class="step-number">4</span>
-                    <h2>Your Tailored CV</h2>
+                    <h2>Your Tailored CVs</h2>
                 </div>
                 <div class="step-content">
                     <div class="results-grid">
@@ -92,35 +88,51 @@
                             <div id="company-analysis"></div>
                         </div>
                         <div class="result-card">
+                            <h3>Salary Estimate</h3>
+                            <div id="salary-info"></div>
+                        </div>
+                        <div class="result-card">
                             <h3>Job Requirements</h3>
                             <div id="job-requirements"></div>
                         </div>
-                        <div class="result-card full-width">
+                        <div class="result-card">
                             <h3>Tailoring Summary</h3>
                             <div id="tailoring-notes"></div>
                         </div>
                     </div>
                     <div class="download-section">
-                        <button id="btn-download" class="btn btn-primary btn-large">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                <polyline points="7,10 12,15 17,10"/>
-                                <line x1="12" y1="15" x2="12" y2="3"/>
-                            </svg>
-                            Download Tailored CV
-                        </button>
+                        <div class="download-buttons">
+                            <button id="btn-download-en" class="btn btn-primary btn-large">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="7,10 12,15 17,10"/>
+                                    <line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                                Download English CV
+                            </button>
+                            <button id="btn-download-fr" class="btn btn-primary btn-large btn-french">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="7,10 12,15 17,10"/>
+                                    <line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                                Download French CV
+                            </button>
+                        </div>
                         <button id="btn-new-job" class="btn btn-secondary">Apply to Another Job</button>
                     </div>
                 </div>
             </section>
 
             <!-- Application History -->
-            <section id="step-history" class="step hidden">
+            <section id="step-history" class="step">
                 <div class="step-header">
                     <h2>Application History</h2>
                 </div>
                 <div class="step-content">
-                    <div id="history-list" class="history-list"></div>
+                    <div id="history-list" class="history-list">
+                        <p class="no-history">No applications yet. Upload your CV and start applying!</p>
+                    </div>
                 </div>
             </section>
         </main>

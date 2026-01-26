@@ -1,5 +1,6 @@
 /**
  * Job Application Tool - Frontend JavaScript
+ * Supports dual English/French CV generation with salary info
  */
 
 const API_BASE = '/api';
@@ -8,51 +9,45 @@ const API_BASE = '/api';
 let state = {
     sessionId: null,
     parsedCV: null,
-    currentDownloadId: null
+    currentDownloadIdEn: null,
+    currentDownloadIdFr: null
 };
 
 // DOM Elements
 const elements = {
-    // Sections
     stepUpload: document.getElementById('step-upload'),
     stepPreview: document.getElementById('step-preview'),
     stepJob: document.getElementById('step-job'),
     stepResults: document.getElementById('step-results'),
     stepHistory: document.getElementById('step-history'),
 
-    // Upload
     dropzone: document.getElementById('dropzone'),
     cvFile: document.getElementById('cv-file'),
     uploadStatus: document.getElementById('upload-status'),
 
-    // Preview
     cvPreview: document.getElementById('cv-preview'),
     btnChangeCV: document.getElementById('btn-change-cv'),
 
-    // Job
     jobUrl: document.getElementById('job-url'),
-    outputLanguage: document.getElementById('output-language'),
     btnTailor: document.getElementById('btn-tailor'),
     tailorStatus: document.getElementById('tailor-status'),
 
-    // Results
     companyAnalysis: document.getElementById('company-analysis'),
+    salaryInfo: document.getElementById('salary-info'),
     jobRequirements: document.getElementById('job-requirements'),
     tailoringNotes: document.getElementById('tailoring-notes'),
-    btnDownload: document.getElementById('btn-download'),
+    btnDownloadEn: document.getElementById('btn-download-en'),
+    btnDownloadFr: document.getElementById('btn-download-fr'),
     btnNewJob: document.getElementById('btn-new-job'),
 
-    // History
     historyList: document.getElementById('history-list'),
 
-    // Loading
     loadingOverlay: document.getElementById('loading-overlay'),
     loadingMessage: document.getElementById('loading-message')
 };
 
-// Utility Functions
 function showSection(section) {
-    [elements.stepUpload, elements.stepPreview, elements.stepJob, elements.stepResults, elements.stepHistory]
+    [elements.stepUpload, elements.stepPreview, elements.stepJob, elements.stepResults]
         .forEach(s => s.classList.add('hidden'));
     section.classList.remove('hidden');
 }
@@ -76,7 +71,7 @@ function hideStatus(element) {
     element.classList.add('hidden');
 }
 
-// CV Upload Handlers
+// CV Upload
 function setupDropzone() {
     const dropzone = elements.dropzone;
 
@@ -103,15 +98,11 @@ function preventDefaults(e) {
 
 function handleDrop(e) {
     const files = e.dataTransfer.files;
-    if (files.length > 0) {
-        handleFile(files[0]);
-    }
+    if (files.length > 0) handleFile(files[0]);
 }
 
 function handleFileSelect(e) {
-    if (e.target.files.length > 0) {
-        handleFile(e.target.files[0]);
-    }
+    if (e.target.files.length > 0) handleFile(e.target.files[0]);
 }
 
 async function handleFile(file) {
@@ -133,10 +124,7 @@ async function handleFile(file) {
         });
 
         const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(data.detail || 'Failed to upload CV');
-        }
+        if (!response.ok) throw new Error(data.detail || 'Failed to upload CV');
 
         state.sessionId = data.session_id;
         state.parsedCV = data.parsed_cv;
@@ -155,24 +143,15 @@ async function handleFile(file) {
 function renderCVPreview(cv) {
     let html = '';
 
-    if (cv.name) {
-        html += `<h4>Name</h4><p><strong>${escapeHtml(cv.name)}</strong></p>`;
-    }
+    if (cv.name) html += `<h4>Name</h4><p><strong>${escapeHtml(cv.name)}</strong></p>`;
 
     if (cv.contact) {
         const contact = cv.contact;
-        const contactParts = [];
-        if (contact.email) contactParts.push(contact.email);
-        if (contact.phone) contactParts.push(contact.phone);
-        if (contact.location) contactParts.push(contact.location);
-        if (contactParts.length > 0) {
-            html += `<h4>Contact</h4><p>${escapeHtml(contactParts.join(' | '))}</p>`;
-        }
+        const parts = [contact.email, contact.phone, contact.location].filter(Boolean);
+        if (parts.length > 0) html += `<h4>Contact</h4><p>${escapeHtml(parts.join(' | '))}</p>`;
     }
 
-    if (cv.summary) {
-        html += `<h4>Summary</h4><p>${escapeHtml(cv.summary)}</p>`;
-    }
+    if (cv.summary) html += `<h4>Summary</h4><p>${escapeHtml(cv.summary)}</p>`;
 
     if (cv.experience && cv.experience.length > 0) {
         html += '<h4>Experience</h4>';
@@ -182,35 +161,21 @@ function renderCVPreview(cv) {
             html += '</p>';
             if (exp.bullets && exp.bullets.length > 0) {
                 html += '<ul>';
-                exp.bullets.slice(0, 3).forEach(bullet => {
-                    html += `<li>${escapeHtml(bullet)}</li>`;
-                });
-                if (exp.bullets.length > 3) {
-                    html += `<li>... and ${exp.bullets.length - 3} more</li>`;
-                }
+                exp.bullets.slice(0, 2).forEach(b => html += `<li>${escapeHtml(b)}</li>`);
+                if (exp.bullets.length > 2) html += `<li>... and ${exp.bullets.length - 2} more</li>`;
                 html += '</ul>';
             }
         });
     }
 
     if (cv.skills && cv.skills.length > 0) {
-        html += `<h4>Skills</h4><p>${cv.skills.map(s => escapeHtml(s)).join(', ')}</p>`;
-    }
-
-    if (cv.education && cv.education.length > 0) {
-        html += '<h4>Education</h4>';
-        cv.education.forEach(edu => {
-            html += `<p><strong>${escapeHtml(edu.degree || '')}</strong>`;
-            if (edu.institution) html += ` - ${escapeHtml(edu.institution)}`;
-            if (edu.dates) html += ` (${escapeHtml(edu.dates)})`;
-            html += '</p>';
-        });
+        html += `<h4>Skills</h4><p>${cv.skills.slice(0, 10).map(s => escapeHtml(s)).join(', ')}</p>`;
     }
 
     elements.cvPreview.innerHTML = html || '<p>CV parsed successfully</p>';
 }
 
-// Tailor CV Handlers
+// Tailor CV
 async function tailorCV() {
     const jobUrl = elements.jobUrl.value.trim();
 
@@ -225,15 +190,12 @@ async function tailorCV() {
     }
 
     hideStatus(elements.tailorStatus);
-    const outputLanguage = elements.outputLanguage.value;
-    const langLabel = outputLanguage === 'french' ? 'French' : 'English';
-    showLoading(`Analyzing job posting and tailoring your CV in ${langLabel}... This may take a moment.`);
+    showLoading('Analyzing job posting and generating English + French CVs... This may take a moment.');
 
     try {
         const formData = new FormData();
         formData.append('session_id', state.sessionId);
         formData.append('job_url', jobUrl);
-        formData.append('output_language', outputLanguage);
 
         const response = await fetch(`${API_BASE}/tailor`, {
             method: 'POST',
@@ -241,16 +203,13 @@ async function tailorCV() {
         });
 
         const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || 'Failed to tailor CV');
 
-        if (!response.ok) {
-            throw new Error(data.detail || 'Failed to tailor CV');
-        }
+        state.currentDownloadIdEn = data.download_id_en;
+        state.currentDownloadIdFr = data.download_id_fr;
 
-        state.currentDownloadId = data.download_id;
-
-        renderResults(data.job_analysis, data.tailored_cv);
+        renderResults(data.job_analysis, data.salary_info, data.tailoring_notes);
         showSection(elements.stepResults);
-        elements.stepHistory.classList.remove('hidden');
         loadHistory();
 
     } catch (error) {
@@ -260,15 +219,28 @@ async function tailorCV() {
     }
 }
 
-function renderResults(jobAnalysis, tailoredCV) {
+function renderResults(jobAnalysis, salaryInfo, tailoringNotes) {
     // Company Analysis
     const company = jobAnalysis.company || {};
     let companyHtml = '';
     if (company.name) companyHtml += `<p><strong>Company:</strong> ${escapeHtml(company.name)}</p>`;
     if (company.industry) companyHtml += `<p><strong>Industry:</strong> ${escapeHtml(company.industry)}</p>`;
     if (company.description) companyHtml += `<p><strong>About:</strong> ${escapeHtml(company.description)}</p>`;
-    if (company.culture) companyHtml += `<p><strong>Culture:</strong> ${escapeHtml(company.culture)}</p>`;
     elements.companyAnalysis.innerHTML = companyHtml || '<p>Company information not available</p>';
+
+    // Salary Info
+    let salaryHtml = '';
+    if (salaryInfo && salaryInfo.estimated_range) {
+        const range = salaryInfo.estimated_range;
+        const currency = range.currency || 'EUR';
+        const symbol = currency === 'EUR' ? '€' : currency === 'USD' ? '$' : currency;
+        salaryHtml += `<p class="salary-range">${symbol}${range.min?.toLocaleString()} - ${symbol}${range.max?.toLocaleString()}</p>`;
+        salaryHtml += `<span class="salary-confidence ${salaryInfo.confidence}">${salaryInfo.confidence} confidence</span>`;
+        if (salaryInfo.notes) salaryHtml += `<p style="margin-top:0.5rem;font-size:0.85rem">${escapeHtml(salaryInfo.notes)}</p>`;
+    } else {
+        salaryHtml = '<p>Salary information not available</p>';
+    }
+    elements.salaryInfo.innerHTML = salaryHtml;
 
     // Job Requirements
     const job = jobAnalysis.job || {};
@@ -279,49 +251,50 @@ function renderResults(jobAnalysis, tailoredCV) {
     if (job.level) reqHtml += `<p><strong>Level:</strong> ${escapeHtml(job.level)}</p>`;
     if (requirements.must_have && requirements.must_have.length > 0) {
         reqHtml += '<p><strong>Key Requirements:</strong></p><ul>';
-        requirements.must_have.slice(0, 5).forEach(req => {
-            reqHtml += `<li>${escapeHtml(req)}</li>`;
-        });
+        requirements.must_have.slice(0, 4).forEach(req => reqHtml += `<li>${escapeHtml(req)}</li>`);
         reqHtml += '</ul>';
     }
     elements.jobRequirements.innerHTML = reqHtml || '<p>Job requirements not available</p>';
 
     // Tailoring Notes
-    const notes = tailoredCV.tailoring_notes || {};
+    const notes = tailoringNotes || {};
     let notesHtml = '';
     if (notes.match_score) {
-        notesHtml += `<p><strong>Match Assessment:</strong> <span class="match-score">${escapeHtml(notes.match_score)}</span></p>`;
+        notesHtml += `<p><strong>Match:</strong> <span class="match-score">${escapeHtml(notes.match_score)}</span></p>`;
     }
     if (notes.emphasis_areas && notes.emphasis_areas.length > 0) {
         notesHtml += `<p><strong>Emphasized:</strong> ${notes.emphasis_areas.map(e => escapeHtml(e)).join(', ')}</p>`;
     }
     if (notes.keywords_added && notes.keywords_added.length > 0) {
-        notesHtml += '<p><strong>Keywords Added:</strong></p><div class="keywords">';
-        notes.keywords_added.forEach(kw => {
-            notesHtml += `<span class="keyword">${escapeHtml(kw)}</span>`;
-        });
+        notesHtml += '<p><strong>Keywords:</strong></p><div class="keywords">';
+        notes.keywords_added.forEach(kw => notesHtml += `<span class="keyword">${escapeHtml(kw)}</span>`);
         notesHtml += '</div>';
     }
-    elements.tailoringNotes.innerHTML = notesHtml || '<p>CV has been tailored for this position</p>';
+    elements.tailoringNotes.innerHTML = notesHtml || '<p>CVs tailored for this position</p>';
 }
 
-// Download Handler
-function downloadCV() {
-    if (state.currentDownloadId) {
-        window.location.href = `${API_BASE}/download/${state.currentDownloadId}`;
+function downloadEnglish() {
+    if (state.currentDownloadIdEn) {
+        window.location.href = `${API_BASE}/download/${state.currentDownloadIdEn}`;
+    }
+}
+
+function downloadFrench() {
+    if (state.currentDownloadIdFr) {
+        window.location.href = `${API_BASE}/download/${state.currentDownloadIdFr}`;
     }
 }
 
 // History
 async function loadHistory() {
-    if (!state.sessionId) return;
-
     try {
-        const response = await fetch(`${API_BASE}/history/${state.sessionId}`);
+        const response = await fetch(`${API_BASE}/history`);
         const data = await response.json();
 
         if (response.ok && data.applications && data.applications.length > 0) {
             renderHistory(data.applications);
+        } else {
+            elements.historyList.innerHTML = '<p class="no-history">No applications yet.</p>';
         }
     } catch (error) {
         console.error('Failed to load history:', error);
@@ -330,16 +303,23 @@ async function loadHistory() {
 
 function renderHistory(applications) {
     let html = '';
-    applications.forEach(app => {
+    applications.slice().reverse().forEach(app => {
+        const salaryText = app.salary_info?.estimated_range
+            ? `${app.salary_info.estimated_range.currency || 'EUR'} ${app.salary_info.estimated_range.min?.toLocaleString()} - ${app.salary_info.estimated_range.max?.toLocaleString()}`
+            : 'N/A';
+
         html += `
             <div class="history-item">
                 <div class="history-item-info">
                     <h4>${escapeHtml(app.job_title)} at ${escapeHtml(app.company)}</h4>
+                    <p>${escapeHtml(app.location || '')} | Salary: ${salaryText}</p>
                     <p>${new Date(app.created_at).toLocaleDateString()}</p>
+                    <a href="${escapeHtml(app.job_url)}" target="_blank">${escapeHtml(app.job_url)}</a>
                 </div>
-                <button class="btn btn-secondary" onclick="downloadHistoryItem('${app.download_id}')">
-                    Download
-                </button>
+                <div class="history-item-actions">
+                    <button class="btn btn-primary" onclick="downloadHistoryItem('${app.download_id_en}')">EN</button>
+                    <button class="btn btn-french" onclick="downloadHistoryItem('${app.download_id_fr}')">FR</button>
+                </div>
             </div>
         `;
     });
@@ -350,7 +330,7 @@ function downloadHistoryItem(downloadId) {
     window.location.href = `${API_BASE}/download/${downloadId}`;
 }
 
-// Utility
+// Utilities
 function escapeHtml(text) {
     if (!text) return '';
     const div = document.createElement('div');
@@ -384,12 +364,11 @@ function setupEventListeners() {
     elements.btnTailor.addEventListener('click', tailorCV);
 
     elements.jobUrl.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            tailorCV();
-        }
+        if (e.key === 'Enter') tailorCV();
     });
 
-    elements.btnDownload.addEventListener('click', downloadCV);
+    elements.btnDownloadEn.addEventListener('click', downloadEnglish);
+    elements.btnDownloadFr.addEventListener('click', downloadFrench);
 
     elements.btnNewJob.addEventListener('click', () => {
         elements.jobUrl.value = '';
@@ -408,7 +387,7 @@ async function checkHealth() {
 
         if (!data.api_key_configured) {
             showStatus(elements.uploadStatus,
-                'Warning: ANTHROPIC_API_KEY not configured. Please set it as an environment variable.',
+                'Warning: ANTHROPIC_API_KEY not configured.',
                 true
             );
         }
@@ -424,4 +403,5 @@ async function checkHealth() {
 document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
     checkHealth();
+    loadHistory();
 });

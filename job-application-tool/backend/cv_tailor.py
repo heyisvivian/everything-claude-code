@@ -1,5 +1,6 @@
 """
 CV Tailor Module - Analyzes job postings and tailors CVs using AI.
+Generates both English and French versions.
 """
 
 import requests
@@ -13,14 +14,11 @@ from urllib.parse import urlparse
 def fetch_job_posting(url: str) -> dict:
     """
     Fetch and extract content from a job posting URL.
-
-    Returns:
-        Dictionary with job description and company info
     """
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
+        "Accept-Language": "en-US,en;q=0.5,fr;q=0.3",
     }
 
     try:
@@ -31,11 +29,9 @@ def fetch_job_posting(url: str) -> dict:
 
     soup = BeautifulSoup(response.text, "lxml")
 
-    # Remove script and style elements
     for element in soup(["script", "style", "nav", "footer", "header"]):
         element.decompose()
 
-    # Extract main content
     main_content = soup.find("main") or soup.find("article") or soup.find("body")
 
     if main_content:
@@ -43,15 +39,12 @@ def fetch_job_posting(url: str) -> dict:
     else:
         text = soup.get_text(separator="\n", strip=True)
 
-    # Clean up the text
     lines = [line.strip() for line in text.split("\n") if line.strip()]
     clean_text = "\n".join(lines)
 
-    # Truncate if too long
     if len(clean_text) > 15000:
         clean_text = clean_text[:15000] + "\n...[truncated]"
 
-    # Extract domain for company context
     domain = urlparse(url).netloc
 
     return {
@@ -102,7 +95,8 @@ Return a JSON object with:
     "responsibilities": ["Key responsibility 1", "Key responsibility 2"],
     "keywords": ["Important keyword 1", "Important keyword 2"],
     "tone": "Formal/Casual/Technical - describe the tone of the posting",
-    "emphasis": "What does this job posting emphasize most?"
+    "emphasis": "What does this job posting emphasize most?",
+    "language": "Language of the job posting (english/french/other)"
 }}
 
 Return ONLY valid JSON, no additional text.""".format(**job_content)
@@ -110,9 +104,7 @@ Return ONLY valid JSON, no additional text.""".format(**job_content)
     response = client.messages.create(
         model="claude-sonnet-4-20250514",
         max_tokens=2048,
-        messages=[
-            {"role": "user", "content": prompt}
-        ]
+        messages=[{"role": "user", "content": prompt}]
     )
 
     response_text = response.content[0].text
@@ -128,37 +120,17 @@ Return ONLY valid JSON, no additional text.""".format(**job_content)
         return {"raw_content": job_content["content"], "parse_error": True}
 
 
-def tailor_cv(parsed_cv: dict, job_analysis: dict, api_key: str, output_language: str = "english") -> dict:
+def tailor_cv_bilingual(parsed_cv: dict, job_analysis: dict, api_key: str) -> dict:
     """
-    Use Claude to tailor the CV content for the specific job.
-
-    Args:
-        parsed_cv: Structured CV data from cv_parser
-        job_analysis: Analyzed job posting data
-        api_key: Anthropic API key
-        output_language: "english" or "french"
-
-    Returns:
-        Dictionary with tailored CV content
+    Use Claude to tailor the CV content for the specific job in BOTH English and French.
+    Returns both versions in a single API call for efficiency.
     """
     client = Anthropic(api_key=api_key)
 
-    language_instruction = ""
-    if output_language == "french":
-        language_instruction = """
-CRITICAL: Write ALL CV content in French. This includes:
-- Professional summary in natural, professional French
-- All experience bullets in French
-- Skills translated to French where appropriate
-- Use proper French business language and conventions
-- The CV is for a French company, so use French throughout
-"""
-    else:
-        language_instruction = """
-Write all CV content in English.
-"""
+    prompt = """You are an expert CV/resume writer fluent in both English and French.
+Tailor this CV for the specific job posting and generate BOTH English and French versions.
 
-    prompt = """You are an expert CV/resume writer. Tailor this CV for the specific job posting.
+IMPORTANT: Keep each CV to ONE PAGE worth of content. Be concise but impactful.
 
 ORIGINAL CV:
 {cv_json}
@@ -166,58 +138,101 @@ ORIGINAL CV:
 JOB ANALYSIS:
 {job_json}
 
-{language_instruction}
-
-Your task:
-1. Rewrite the professional summary to directly address this role and company
-2. Reorder and rewrite experience bullets to highlight relevant skills and achievements
+Your tasks:
+1. Rewrite the professional summary to directly address this role
+2. Reorder and rewrite experience bullets to highlight relevant skills (2-3 bullets per job MAX)
 3. Emphasize skills that match the job requirements
-4. Use keywords from the job posting naturally throughout
-5. Adjust the tone to match the company culture
-6. Keep all information truthful - enhance presentation, don't fabricate
+4. Use keywords from the job posting naturally
+5. For French version: Write natural, professional French (not translated-sounding)
 
-Return a JSON object with the tailored CV:
+Return a JSON object with BOTH versions:
 {{
-    "name": "Keep original name",
-    "contact": {{ /* Keep original contact info */ }},
-    "summary": "Newly written professional summary tailored for this role (2-3 sentences)",
-    "experience": [
-        {{
-            "title": "Original or slightly adjusted title",
-            "company": "Original company",
-            "location": "Original location",
-            "dates": "Original dates",
-            "bullets": ["Rewritten bullet emphasizing relevant achievements", "Another tailored bullet"]
-        }}
-    ],
-    "education": [ /* Keep original education */ ],
-    "skills": ["Reordered skills with most relevant first"],
-    "certifications": [ /* Keep relevant certifications */ ],
-    "languages": [ /* Keep original */ ],
-    "projects": [ /* Keep relevant projects, rewrite descriptions to emphasize relevant tech */ ],
+    "english": {{
+        "name": "Keep original name",
+        "contact": {{ "email": "...", "phone": "...", "linkedin": "...", "location": "..." }},
+        "summary": "Tailored summary in English (2 sentences max)",
+        "education": [
+            {{
+                "institution": "School name",
+                "degree": "Degree name",
+                "dates": "Aug 2023 - Jun 2024",
+                "location": "City, Country",
+                "details": "Key relevant coursework or achievements"
+            }}
+        ],
+        "experience": [
+            {{
+                "company": "Company name",
+                "title": "Job title",
+                "dates": "Jan 2024 - Jul 2024",
+                "duration": "6 months",
+                "location": "City, Country",
+                "bullets": ["Achievement 1 with metrics", "Achievement 2"]
+            }}
+        ],
+        "leadership": [
+            {{
+                "name": "Project or Role name",
+                "role": "Your role",
+                "dates": "Start - End",
+                "duration": "X months",
+                "location": "City, Country",
+                "bullets": ["Key achievement"]
+            }}
+        ],
+        "skills": ["Skill1", "Skill2", "Skill3"],
+        "languages": ["English (Fluent)", "French (B2)"],
+        "certifications": []
+    }},
+    "french": {{
+        "name": "Keep original name",
+        "contact": {{ "email": "...", "phone": "...", "linkedin": "...", "location": "..." }},
+        "summary": "Résumé professionnel adapté en français naturel (2 phrases max)",
+        "education": [
+            {{
+                "institution": "Nom de l'école",
+                "degree": "Nom du diplôme",
+                "dates": "Aug 2023 - Jun 2024",
+                "location": "Ville, Pays",
+                "details": "Cours pertinents"
+            }}
+        ],
+        "experience": [
+            {{
+                "company": "Nom de l'entreprise",
+                "title": "Titre du poste en français",
+                "dates": "Jan 2024 - Jul 2024",
+                "duration": "6 mois",
+                "location": "Ville, Pays",
+                "bullets": ["Réalisation 1 avec métriques", "Réalisation 2"]
+            }}
+        ],
+        "leadership": [...],
+        "skills": ["Compétence1", "Compétence2"],
+        "languages": ["Anglais (Courant)", "Français (B2)"],
+        "certifications": []
+    }},
     "tailoring_notes": {{
         "keywords_added": ["keyword1", "keyword2"],
         "emphasis_areas": ["What was emphasized"],
-        "match_score": "Estimated match percentage with reasoning"
+        "match_score": "85% - Strong match because..."
     }}
 }}
 
-Important:
-- Keep the CV to 1-2 pages worth of content
+IMPORTANT:
+- Keep each CV to ONE PAGE - limit bullets, be concise
 - Don't invent new experience or skills
-- Make bullets achievement-focused with metrics where available
+- French version should sound natural, not translated
+- Include duration for each role (e.g., "6 months", "2 years")
 - Return ONLY valid JSON""".format(
         cv_json=json.dumps(parsed_cv, indent=2),
-        job_json=json.dumps(job_analysis, indent=2),
-        language_instruction=language_instruction
+        job_json=json.dumps(job_analysis, indent=2)
     )
 
     response = client.messages.create(
         model="claude-sonnet-4-20250514",
-        max_tokens=4096,
-        messages=[
-            {"role": "user", "content": prompt}
-        ]
+        max_tokens=6000,
+        messages=[{"role": "user", "content": prompt}]
     )
 
     response_text = response.content[0].text
@@ -228,29 +243,89 @@ Important:
         elif "```" in response_text:
             response_text = response_text.split("```")[1].split("```")[0]
 
-        tailored = json.loads(response_text.strip())
-        tailored["job_info"] = {
+        result = json.loads(response_text.strip())
+
+        # Add job info to both versions
+        job_info = {
             "company": job_analysis.get("company", {}).get("name", "Unknown"),
             "title": job_analysis.get("job", {}).get("title", "Unknown"),
             "url": job_analysis.get("url", "")
         }
-        return tailored
+
+        if "english" in result:
+            result["english"]["job_info"] = job_info
+        if "french" in result:
+            result["french"]["job_info"] = job_info
+
+        return result
     except json.JSONDecodeError:
         raise ValueError("Failed to generate tailored CV. Please try again.")
 
 
-def process_job_url(url: str, parsed_cv: dict, api_key: str, output_language: str = "english") -> dict:
+def search_salary_info(job_title: str, company: str, location: str, api_key: str) -> dict:
     """
-    Main function to process a job URL and tailor a CV.
+    Use Claude to search for salary information based on job details.
+    """
+    client = Anthropic(api_key=api_key)
 
-    Args:
-        url: Job posting URL
-        parsed_cv: Pre-parsed CV data
-        api_key: Anthropic API key
-        output_language: "english" or "french"
+    prompt = """Based on your knowledge, estimate the salary range for this position:
 
-    Returns:
-        Dictionary with job analysis and tailored CV
+Job Title: {title}
+Company: {company}
+Location: {location}
+
+Provide salary information in JSON format:
+{{
+    "estimated_range": {{
+        "min": 45000,
+        "max": 65000,
+        "currency": "EUR"
+    }},
+    "confidence": "medium",
+    "notes": "Brief explanation of the estimate",
+    "sources": "Based on typical market rates for this role in this location"
+}}
+
+If you cannot provide a reasonable estimate, return:
+{{
+    "estimated_range": null,
+    "confidence": "low",
+    "notes": "Insufficient information to estimate salary"
+}}
+
+Return ONLY valid JSON.""".format(
+        title=job_title,
+        company=company,
+        location=location
+    )
+
+    try:
+        response = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=500,
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        response_text = response.content[0].text
+
+        if "```json" in response_text:
+            response_text = response_text.split("```json")[1].split("```")[0]
+        elif "```" in response_text:
+            response_text = response_text.split("```")[1].split("```")[0]
+
+        return json.loads(response_text.strip())
+    except:
+        return {
+            "estimated_range": None,
+            "confidence": "low",
+            "notes": "Could not retrieve salary information"
+        }
+
+
+def process_job_url(url: str, parsed_cv: dict, api_key: str) -> dict:
+    """
+    Main function to process a job URL and tailor CVs in both languages.
+    Also fetches salary information.
     """
     # Fetch the job posting
     job_content = fetch_job_posting(url)
@@ -259,10 +334,21 @@ def process_job_url(url: str, parsed_cv: dict, api_key: str, output_language: st
     job_analysis = analyze_job_posting(job_content, api_key)
     job_analysis["url"] = url
 
-    # Tailor the CV
-    tailored_cv = tailor_cv(parsed_cv, job_analysis, api_key, output_language)
+    # Tailor the CV in both languages
+    tailored_result = tailor_cv_bilingual(parsed_cv, job_analysis, api_key)
+
+    # Get salary estimate
+    salary_info = search_salary_info(
+        job_analysis.get("job", {}).get("title", ""),
+        job_analysis.get("company", {}).get("name", ""),
+        job_analysis.get("job", {}).get("location", ""),
+        api_key
+    )
 
     return {
         "job_analysis": job_analysis,
-        "tailored_cv": tailored_cv
+        "tailored_cv_english": tailored_result.get("english", {}),
+        "tailored_cv_french": tailored_result.get("french", {}),
+        "tailoring_notes": tailored_result.get("tailoring_notes", {}),
+        "salary_info": salary_info
     }
