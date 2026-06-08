@@ -19,10 +19,8 @@ const {
   setProjectPackageManager,
   getAvailablePackageManagers,
   detectFromLockFile,
-  detectFromPackageJson,
-  getSelectionPrompt
+  detectFromPackageJson
 } = require('./lib/package-manager');
-const { log } = require('./lib/utils');
 
 function showHelp() {
   console.log(`
@@ -176,7 +174,7 @@ if (args.includes('--list')) {
 const globalIdx = args.indexOf('--global');
 if (globalIdx !== -1) {
   const pmName = args[globalIdx + 1];
-  if (!pmName) {
+  if (!pmName || pmName.startsWith('-')) {
     console.error('Error: --global requires a package manager name');
     process.exit(1);
   }
@@ -187,7 +185,7 @@ if (globalIdx !== -1) {
 const projectIdx = args.indexOf('--project');
 if (projectIdx !== -1) {
   const pmName = args[projectIdx + 1];
-  if (!pmName) {
+  if (!pmName || pmName.startsWith('-')) {
     console.error('Error: --project requires a package manager name');
     process.exit(1);
   }

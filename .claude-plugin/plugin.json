@@ -1,19 +1,19 @@
 {
-  "name": "everything-claude-code",
-  "description": "Complete collection of battle-tested Claude Code configs from an Anthropic hackathon winner - agents, skills, hooks, commands, and rules evolved over 10+ months of intensive daily use",
+  "name": "ecc",
+  "version": "2.0.0-rc.1",
+  "description": "Harness-native ECC plugin for engineering teams - 64 agents, 261 skills, 84 legacy command shims, reusable hooks, rules, MCP conventions, and operator workflows for Claude Code plus adjacent agent harnesses",
   "author": {
     "name": "Affaan Mustafa",
     "url": "https://x.com/affaanmustafa"
   },
-  "homepage": "https://github.com/affaan-m/everything-claude-code",
-  "repository": "https://github.com/affaan-m/everything-claude-code",
+  "homepage": "https://ecc.tools",
+  "repository": "https://github.com/affaan-m/ECC",
   "license": "MIT",
   "keywords": [
     "claude-code",
     "agents",
     "skills",
     "hooks",
-    "commands",
     "rules",
     "tdd",
     "code-review",
@@ -22,6 +22,11 @@
     "automation",
     "best-practices"
   ],
-  "commands": "./commands",
-  "skills": "./skills"
+  "mcpServers": {},
+  "skills": [
+    "./skills/"
+  ],
+  "commands": [
+    "./commands/"
+  ]
 }
